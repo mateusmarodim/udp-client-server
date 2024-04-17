@@ -76,28 +76,33 @@ def handle_request(payload, length, checksum, destination_port, destination_ip):
         print(f"[*] GET request for file: {data}")
         try:
             chunk_id = 1
-            with open(data, "r") as file:
+            with open(data, "rb") as file:
                 while True:
                     chunk = file.read(BUFF_SIZE - header_struct.size - response_code_struct.size - chunk_id_struct.size)
                     if not chunk:
                         size = header_struct.size + response_code_struct.size + chunk_id_struct.size
-                        header = struct.pack("!HHH4s", server_port, destination_port, size, b"")
-                        message = struct.pack("!HH", 200, chunk_id)
-                        response = header + message + b""
+                        message = struct.pack("!HH", 200, chunk_id) + b""
+                        checksum = crc32(message)
+                        header = struct.pack("!HHHI", server_port, destination_port, size, checksum)
+                        response = header + message 
                         server_socket.sendto(response, (destination_ip, destination_port))
                         break
                     print(chunk_id)
                     size = header_struct.size + response_code_struct.size + chunk_id_struct.size + len(chunk)
-                    header = struct.pack("!HHH4s", server_port, destination_port, size, b"")
-                    message = struct.pack("!HH", 200, chunk_id)
-                    response = header + message + chunk.encode()
+                    message = struct.pack("!HH", 200, chunk_id) + chunk
+                    checksum = crc32(message)
+                    header = struct.pack("!HHHI", server_port, destination_port, size, checksum)
+                    response = header + message
                     server_socket.sendto(response, (destination_ip, destination_port))
                     chunk_id = chunk_id + 1
         except FileNotFoundError:
             response_data = b"File not found"
             size = header_struct.size + response_code_struct.size + len(response_data)
-            response_headers = header_struct.pack(server_port, destination_port, size, b"")                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
-            response_code = response_code_struct.pack(RESPONSE_NOT_FOUND.encode())
+            message = struct.pack("!HH", 404, chunk_id) + response_data
+            checksum = crc32(message)
+            header = struct.pack("!HHHI", server_port, destination_port, size, checksum)
+            response = header + message
+            server_socket.sendto(response, (destination_ip, destination_port))
         # except Exception: 
         #     response_data = b"Internal server error"
         #     size = header_struct.size + response_code_struct.size + len(response_data)
