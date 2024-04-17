@@ -111,10 +111,10 @@ def listen_to_response():
         file.sort()
         if len(file) <= 0:
             return
-        with open("output.txt", "w") as file:
+        with open("output.txt", "w") as newFile:
             for chunk in file:
                 if chunk is not None:
-                    file.write(chunk[1])
+                    newFile.write(chunk[1])
     except Exception as e:
         print(f"[*] Error: {e}")
         return
