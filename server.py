@@ -49,7 +49,6 @@ def listen():
         print(f"[*] Listening on port {DEFAULT_SERVER_PORT}...")
 
         data, addr = server_socket.recvfrom(BUFF_SIZE)
-    
         print(len(data))
         print(f"[*] Request: {data}")
         print(f"[*] From: {addr[0]}:{addr[1]}")
@@ -87,14 +86,25 @@ def handle_request(payload, length, checksum, destination_port, destination_ip):
                         response = header + message 
                         server_socket.sendto(response, (destination_ip, destination_port))
                         break
-                    print(chunk_id)
+                    print(f"[*] Sending chunk {chunk_id}...")
                     size = header_struct.size + response_code_struct.size + chunk_id_struct.size + len(chunk)
                     message = struct.pack("!HH", 200, chunk_id) + chunk
                     checksum = crc32(message)
                     header = struct.pack("!HHHI", server_port, destination_port, size, checksum)
                     response = header + message
                     server_socket.sendto(response, (destination_ip, destination_port))
-                    chunk_id = chunk_id + 1
+                    # Aguardar confirmação do cliente antes de enviar o próximo chunk
+                    try:
+                        response_data, addr = server_socket.recvfrom(BUFF_SIZE)
+                        # Verificar se a confirmação recebida é válida
+                        if response_data == b"ACK":
+                            print("[*] Chunk confirmation received.")
+                        else:
+                            print("[*] Invalid confirmation received.")
+                    except socket.timeout:
+                        print("[*] Timeout waiting for chunk confirmation.")
+                        # Lógica de tratamento de timeout
+                    chunk_id += 1
         except FileNotFoundError:
             response_data = b"File not found"
             size = header_struct.size + response_code_struct.size + len(response_data)
