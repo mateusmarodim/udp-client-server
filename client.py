@@ -2,7 +2,7 @@ import socket
 import struct
 from zlib import crc32
 from constants import DEFAULT_SERVER_PORT,\
-    DEFAULT_CLIENT_PORT,\
+    DEFAULT_CLIENT_PORT, RESPONSE_NOT_FOUND, RESPONSE_OK, RESPONSE_CHUNK, RESPONSE_ERROR,\
     BUFF_SIZE, GET_METHOD, \
     SOURCE_PORT_FORMAT,\
     DESTINATION_PORT_FORMAT, \
@@ -89,15 +89,36 @@ def send_request(request):
         print("Invalid request format. Please try again.")
         return
 
-# TODO: verificar checksum, tratar codigos de erro, salvar resposta em arquivo, implementar opcao de descartar pacotes
-def listen_to_response(): 
-    while True: 
-        print(f"[*] Waiting for response...")
+# TODO: verificar checksum, tratar codigos de erro, salvar resposta em arquivo, 
+# implementar opcao de descartar pacotes
+def listen_to_response():
+    file = []
+    try:
+        while True: 
+            print(f"[*] Waiting for response...")
 
-        data, addr = client_socket.recvfrom(BUFF_SIZE)
-    
-        print(len(data))
-        print(f"Response: \n{data}")
+            data, addr = client_socket.recvfrom(BUFF_SIZE)
 
+            source_port, dest_port, length, checksum = header_struct.unpack(data[:header_struct.size])
+            code, id = struct.unpack("!HH", data[header_struct.size:header_struct.size + 4])
+            payload = data[header_struct.size + 4:]
+
+            print(f"Code: {code}")
+
+            if payload == b"":
+                break
+            file.append((id, payload.decode()))
+        file.sort()
+        if len(file) <= 0:
+            return
+        with open("output.txt", "w") as file:
+            for chunk in file:
+                if chunk is not None:
+                    file.write(chunk[1])
+    except Exception as e:
+        print(f"[*] Error: {e}")
+        return
+            
+            
 if __name__ == "__main__":
     main()
