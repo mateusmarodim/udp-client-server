@@ -1,7 +1,7 @@
 DEFAULT_SERVER_PORT = 8080
 DEFAULT_CLIENT_PORT = 2024
 
-BUFF_SIZE = 2048
+BUFF_SIZE = 4096
 
 ## Formats for struct module
 # H - unsigned short

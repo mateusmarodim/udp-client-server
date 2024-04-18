@@ -1,6 +1,7 @@
 import socket
 import struct
 import os
+import time
 from urllib import response
 from zlib import crc32
 from constants import DEFAULT_SERVER_PORT,\
@@ -49,7 +50,6 @@ def listen():
         print(f"[*] Listening on port {DEFAULT_SERVER_PORT}...")
 
         data, addr = server_socket.recvfrom(BUFF_SIZE)
-    
         print(len(data))
         print(f"[*] Request: {data}")
         print(f"[*] From: {addr[0]}:{addr[1]}")
@@ -95,6 +95,7 @@ def handle_request(payload, length, checksum, destination_port, destination_ip):
                     response = header + message
                     server_socket.sendto(response, (destination_ip, destination_port))
                     chunk_id = chunk_id + 1
+                    time.sleep(0.5)
         except FileNotFoundError:
             response_data = b"File not found"
             size = header_struct.size + response_code_struct.size + len(response_data)

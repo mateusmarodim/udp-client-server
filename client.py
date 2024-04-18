@@ -18,7 +18,7 @@ server_port = DEFAULT_SERVER_PORT
 client_port = DEFAULT_CLIENT_PORT
 
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-client_socket.settimeout(0.3)
+client_socket.settimeout(10)
 header_struct = struct.Struct(f"!{SOURCE_PORT_FORMAT}{DESTINATION_PORT_FORMAT}{LENGTH_FORMAT}{CHECKSUM_FORMAT}")
 method_struct = struct.Struct(f"!4s")
 
@@ -99,7 +99,6 @@ def listen_to_response(filename):
             print(f"[*] Waiting for response...")
 
             data, addr = client_socket.recvfrom(BUFF_SIZE)
-
             source_port, dest_port, length, checksum = header_struct.unpack(data[:header_struct.size])
             code, id = struct.unpack("!HH", data[header_struct.size:header_struct.size + 4])
             payload = data[header_struct.size + 4:]
@@ -109,26 +108,28 @@ def listen_to_response(filename):
             print(f"Calculated: {calculated}")
             print(f"Code: {code}")
             print(f"ID: {id}")
-
             if payload == b"":
                 break
-            file.append({id: id, data: payload.decode("ISO-8859-1")})
-        file.sort()
-        print(file)
+            file.append({"id": id, "data": payload})
+        file = arrayToByteString(file)
         if len(file) <= 0:
             return
         with open('copy_' + filename, "wb") as newFile:
-            for chunk in file:
-                if chunk is not None:
-                    newFile.write(chunk[data])
+            newFile.write(file)
     except socket.timeout as e:
         print(e)
-        print(file)
+        file = arrayToByteString(file)
+        with open('corrupted_' + filename, "wb") as newFile:
+            newFile.write(file)
         return
     except Exception as e:
         print(f"[*] Error: {e}")
         return
-            
-            
+
+def arrayToByteString(file):
+    result = b""
+    for value in file:
+        result += value["data"]
+    return result
 if __name__ == "__main__":
     main()
