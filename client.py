@@ -1,4 +1,3 @@
-import os
 import socket
 import struct
 from zlib import crc32
@@ -19,7 +18,7 @@ server_port = DEFAULT_SERVER_PORT
 client_port = DEFAULT_CLIENT_PORT
 
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-client_socket.settimeout(5)
+client_socket.settimeout(0.3)
 header_struct = struct.Struct(f"!{SOURCE_PORT_FORMAT}{DESTINATION_PORT_FORMAT}{LENGTH_FORMAT}{CHECKSUM_FORMAT}")
 method_struct = struct.Struct(f"!4s")
 
@@ -94,47 +93,42 @@ def send_request(request):
 # TODO: verificar checksum, tratar codigos de erro, salvar resposta em arquivo, 
 # implementar opcao de descartar pacotes
 def listen_to_response(filename):
+    file = []
     try:
-        with open('copy_' + filename, "wb") as newFile:
-            expected_chunk_id = 1
-            while True:
-                print(f"[*] Waiting for chunk {expected_chunk_id}...")
-                data, addr = client_socket.recvfrom(BUFF_SIZE)
-                source_port, dest_port, length, checksum = header_struct.unpack(data[:header_struct.size])
-                code, chunk_id = struct.unpack("!HH", data[header_struct.size:header_struct.size + 4])
-                payload = data[header_struct.size + 4:]
+        while True: 
+            print(f"[*] Waiting for response...")
 
-                calculated = crc32(data[header_struct.size:])
-                print(f"Checksum: {checksum}")
-                print(f"Calculated: {calculated}")
-                print(f"Code: {code}")
-                print(f"ID: {chunk_id}")
-                if payload == b"":
-                    break
-                print(code == RESPONSE_OK)
-                print(chunk_id == expected_chunk_id)
-                if code == RESPONSE_OK and chunk_id == expected_chunk_id:
-                    print(f"[*] Chunk {chunk_id} received.")
-                    newFile.write(payload)
-                    expected_chunk_id += 1
-                    # Enviar confirmação ao servidor
-                    client_socket.sendto(b"ACK", (server_IP_address, server_port))
-                else:
-                    print("[*] Invalid chunk received. Resending ACK.")
-                    # Reenviar a confirmação ao servidor
-                    client_socket.sendto(b"ACK", (server_IP_address, server_port))
+            data, addr = client_socket.recvfrom(BUFF_SIZE)
+
+            source_port, dest_port, length, checksum = header_struct.unpack(data[:header_struct.size])
+            code, id = struct.unpack("!HH", data[header_struct.size:header_struct.size + 4])
+            payload = data[header_struct.size + 4:]
+
+            calculated = crc32(data[header_struct.size:])
+            print(f"Checksum: {checksum}")
+            print(f"Calculated: {calculated}")
+            print(f"Code: {code}")
+            print(f"ID: {id}")
+
+            if payload == b"":
+                break
+            file.append({id: id, data: payload.decode("ISO-8859-1")})
+        file.sort()
+        print(file)
+        if len(file) <= 0:
+            return
+        with open('copy_' + filename, "wb") as newFile:
+            for chunk in file:
+                if chunk is not None:
+                    newFile.write(chunk[data])
     except socket.timeout as e:
-        os.rename('temp_' + filename, 'corrupted_' + filename)
+        print(e)
+        print(file)
         return
     except Exception as e:
         print(f"[*] Error: {e}")
         return
-
-def arrayToByteString(file):
-    result = b""
-    for value in file:
-        result += value["data"]
-    return result
-
+            
+            
 if __name__ == "__main__":
     main()
